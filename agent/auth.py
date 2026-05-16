@@ -7,7 +7,7 @@ DUMMY_EMAIL = "test@agra.com"
 DUMMY_PASSWORD = "agra1234"
 DUMMY_TOKEN = "dummy_token_123"
 
-BACKEND_URL = "http://127.0.0.1:8000"
+BACKEND_URL = "https://uncommonhacks-agra-production.up.railway.app"
 
 def get_token_path() -> str:
     # save token next to the .exe, not inside temp bundle

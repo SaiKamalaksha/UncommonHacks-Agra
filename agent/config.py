@@ -12,7 +12,7 @@ def get_base_dir() -> str:
     return str(Path(__file__).resolve().parent.parent)
 
 BASE_DIR = get_base_dir()
-BACKEND_URL = "http://127.0.0.1:8000"
+BACKEND_URL = "https://uncommonhacks-agra-production.up.railway.app"
 
 @dataclass
 class AgentConfig:
