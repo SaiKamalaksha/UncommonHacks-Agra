@@ -1,8 +1,11 @@
+import time
 from typing import Optional
 
 import requests
 
 from agent.scorer import ScanResult
+
+_RETRY_COOLDOWN = 60.0  # seconds to wait before re-checking Ollama availability
 
 
 class LLMAnalyst:
@@ -10,6 +13,7 @@ class LLMAnalyst:
         self.model = model
         self.base_url = base_url
         self.available = self._check_availability()
+        self._last_retry: float = 0.0
 
     def _check_availability(self) -> bool:
         try:
@@ -20,6 +24,11 @@ class LLMAnalyst:
 
     def analyze(self, result: ScanResult) -> Optional[str]:
         if not self.available:
+            # Avoid hammering Ollama (or waiting 2 s on every scan) by enforcing
+            # a cooldown between availability re-checks.
+            if time.monotonic() - self._last_retry < _RETRY_COOLDOWN:
+                return None
+            self._last_retry = time.monotonic()
             self.available = self._check_availability()
             if not self.available:
                 return None
@@ -40,6 +49,10 @@ class LLMAnalyst:
             return response.json().get("response", "").strip()
         except Exception as e:
             print(f"  LLM analysis failed: {e}")
+            # Mark unavailable and reset the cooldown timer so the next retry
+            # waits the full cooldown period before trying again.
+            self.available = False
+            self._last_retry = time.monotonic()
             return None
 
     def _build_prompt(self, result: ScanResult) -> str:
