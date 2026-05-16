@@ -1,5 +1,6 @@
 import hashlib
 import pickle
+import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -7,6 +8,9 @@ from typing import List, Optional
 
 import lightgbm as lgb
 import numpy as np
+
+EICAR_SIGNATURE = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+AGRA_TEST_SIGNATURE = b"AGRA-EDR-TEST-MALWARE"
 
 
 @dataclass
@@ -24,6 +28,9 @@ class ScanResult:
     top_features: List[dict] = field(default_factory=list)
     llm_analysis: Optional[str] = None
     timestamp: str = ""
+
+class EncryptedArchiveDetected(Exception):
+    pass
 
 
 class Scorer:
@@ -58,6 +65,68 @@ class Scorer:
                 h.update(chunk)
         return h.hexdigest()
 
+    def _detect_test_signature(self, filepath: str) -> Optional[str]:
+        path = Path(filepath)
+        try:
+            if zipfile.is_zipfile(path):
+                with zipfile.ZipFile(path) as archive:
+                    for name in archive.namelist():
+                        try:
+                            with archive.open(name) as member:
+                                data = member.read(1024 * 1024)
+                                if EICAR_SIGNATURE in data:
+                                    return "EICAR test signature"
+                                if AGRA_TEST_SIGNATURE in data:
+                                    return "AGRA test signature"
+                        except RuntimeError as e:
+                            if "encrypted" in str(e).lower() or "password" in str(e).lower():
+                                raise EncryptedArchiveDetected(str(e)) from e
+                            raise
+                return None
+
+            with open(path, "rb") as f:
+                data = f.read(1024 * 1024)
+                if EICAR_SIGNATURE in data:
+                    return "EICAR test signature"
+                if AGRA_TEST_SIGNATURE in data:
+                    return "AGRA test signature"
+                return None
+        except Exception as e:
+            print(f"  [WARN] Test-signature precheck failed for {path.name}: {e}")
+            return None
+
+    def _manual_result(
+        self,
+        filepath: str,
+        score: int,
+        classification: str,
+        reason: str,
+    ) -> ScanResult:
+        path = Path(filepath)
+        return ScanResult(
+            filepath=filepath,
+            filename=path.name,
+            file_size=path.stat().st_size,
+            file_hash_sha256=self._file_hash(filepath),
+            lgbm_score=score / 100,
+            rf_score=score / 100,
+            threat_score=score,
+            classification=classification,
+            cluster_id=-1,
+            hdbscan_cluster_id=-1,
+            top_features=[{"name": reason, "value": 1.0, "importance": 1.0}],
+            llm_analysis=reason,
+            timestamp=datetime.now().strftime("%H:%M:%S"),
+        )
+
+    def _test_signature_result(self, filepath: str, signature_name: str) -> ScanResult:
+        return self._manual_result(
+            filepath,
+            100,
+            "malicious",
+            f"{signature_name} detected. This is a harmless validation sample.",
+        )
+
     def extract_features(self, filepath: str) -> np.ndarray:
         """Extract 702-dim feature vector from a binary using thrember.
 
@@ -79,7 +148,31 @@ class Scorer:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
     def score_file(self, filepath: str) -> ScanResult:
-        features = self.extract_features(filepath)
+        try:
+            signature_name = self._detect_test_signature(filepath)
+        except EncryptedArchiveDetected as e:
+            print(f"  [ARCHIVE] Encrypted/password-protected ZIP detected: {e}")
+            return self._manual_result(
+                filepath,
+                100,
+                "malicious",
+                "Encrypted/password-protected archive blocked because contents cannot be inspected.",
+            )
+
+        if signature_name:
+            print(f"  [TEST] {signature_name} detected.")
+            return self._test_signature_result(filepath, signature_name)
+
+        try:
+            features = self.extract_features(filepath)
+        except FileNotFoundError as e:
+            print(f"  [WARN] Feature extractor dependency missing: {e}")
+            return self._manual_result(
+                filepath,
+                80,
+                "malicious",
+                "Feature extractor failed in packaged runtime; file blocked as a precaution.",
+            )
 
         # --- Classification ---
         lgbm_prob = float(self.lgbm.predict(features)[0])

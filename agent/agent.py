@@ -125,6 +125,15 @@ class FileWatcher:
                     print(f"  [ALERT] Sent to backend.")
                 else:
                     print(f"  [ALERT] Failed to send to backend.")
+
+                if result.threat_score >= self.config.threat_threshold:
+                    try:
+                        os.remove(filepath)
+                        print(f"  [BLOCK] STOPPED THREAT - deleted file: {filepath}")
+                    except FileNotFoundError:
+                        print(f"  [BLOCK] File already removed: {filepath}")
+                    except Exception as e:
+                        print(f"  [BLOCK] Failed to delete {filepath}: {e}")
             except Exception as e:
                 print(f"  [ERROR] Scanning {filepath}: {e}")
             finally:
