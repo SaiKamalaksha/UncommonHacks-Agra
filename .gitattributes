@@ -1,0 +1,4 @@
+# Treat model files as binary — prevent line-ending conversion on Windows
+*.model binary
+*.pkl binary
+*.onnx binary
