@@ -1,25 +1,27 @@
-import os
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import List
 
-# User
-USERNAME = os.getlogin()
 
-# Watched paths
-WATCHED_PATHS = [
-    f"C:/Users/{USERNAME}/Downloads",
-    f"C:/Users/{USERNAME}/Desktop",
-    "C:/watched_folder"
-]
+@dataclass
+class AgentConfig:
+    watch_dirs: List[str] = field(
+        default_factory=lambda: [str(Path.home() / "Downloads")]
+    )
+    scan_extensions: List[str] = field(
+        default_factory=lambda: [
+            ".exe", ".dll", ".sys", ".ps1", ".bat",
+            ".xlsm", ".pdf", ".elf", ".apk",
+        ]
+    )
+    scan_interval_seconds: float = 2.0
+    threat_threshold: int = 70
+    warning_threshold: int = 40
+    max_file_size_mb: int = 100
 
-# File types to scan
-WATCHED_EXTENSIONS = [".exe", ".dll", ".msi", ".bat", ".ps1"]
+    backend_url: str = "http://127.0.0.1:8000"
+    model_dir: str = str(Path(__file__).resolve().parent.parent / "model")
 
-# Scoring thresholds
-MALICIOUS_THRESHOLD = 0.7
-SUSPICIOUS_THRESHOLD = 0.4
-
-# Backend
-BACKEND_URL = "http://localhost:5000"
-
-# App
-APP_NAME = "Agra Security"
-VERSION = "0.1.0"
+    use_llm: bool = True
+    ollama_model: str = "qwen2.5:0.5b"
+    ollama_url: str = "http://127.0.0.1:11434"
