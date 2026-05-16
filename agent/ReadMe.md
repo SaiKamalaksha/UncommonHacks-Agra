@@ -1,121 +1,69 @@
-# Agra Security — Agent Setup
+# AGRA Agent
 
-## Prerequisites
-- Windows 10/11
-- Python 3.10+
-- Git
+This folder contains the Windows file-watching agent. For full project setup, start with the root `README.md`.
 
-## Installation
+## Run From Source
 
-### 1. Clone the repo
+From the repo root:
+
 ```powershell
-git clone https://github.com/SaiKamalaksha/UncommonHacks-Agra.git
-cd UncommonHacks-Agra/agent
+.\.venv\Scripts\activate
+python -m agent.main
 ```
 
-### 2. Create and activate virtual environment
-```powershell
-python -m venv venv
-.\venv\Scripts\activate
-```
+The agent watches:
 
-### 3. Install dependencies
-```powershell
-pip install watchdog requests plyer pystray Pillow
-```
+- `%USERPROFILE%\Downloads`
+- `%USERPROFILE%\Desktop`
+- `C:\watched_folder`
 
-### 4. Create watched folder
-```powershell
-New-Item -ItemType Directory -Path "C:/watched_folder"
-```
+## Build The EXE
 
-## Running the Agent
+From the repo root:
 
-### Start the agent
 ```powershell
+.\.venv\Scripts\activate
 cd agent
-.\venv\Scripts\activate
-python main.py
+pyinstaller AgraSecurity.spec
 ```
 
-You should see:
-```
-[Agra Security] Starting agent...
-[DEBUG] Username: YourUsername
-[DEBUG] C:/Users/YourUsername/Downloads exists: True
-[DEBUG] C:/Users/YourUsername/Desktop exists: True
-[DEBUG] C:/watched_folder exists: True
-[WATCHING] C:/Users/YourUsername/Downloads
-[WATCHING] C:/Users/YourUsername/Desktop
-[WATCHING] C:/watched_folder
+The built executable is:
+
+```text
+agent\dist\AgraSecurity.exe
 ```
 
-A green shield icon will appear in your system tray confirming the agent is running.
+The current build uses a visible console for demos and also writes:
 
-## Configuration
-
-All settings are in `config.py`:
-
-| Setting | Default | Description |
-|---|---|---|
-| `WATCHED_PATHS` | Downloads, Desktop, C:/watched_folder | Folders monitored by the agent |
-| `WATCHED_EXTENSIONS` | .exe .dll .msi .bat .ps1 | File types that get scanned |
-| `MALICIOUS_THRESHOLD` | 0.7 | Score above which a file is deleted |
-| `SUSPICIOUS_THRESHOLD` | 0.4 | Score above which a file is flagged |
-| `BACKEND_URL` | http://localhost:5000 | URL of the backend server |
-
-To point the agent at the live backend, update `BACKEND_URL` in `config.py`:
-```python
-BACKEND_URL = "http://YOUR_NGROK_URL_HERE"
+```text
+agent\dist\AgraSecurity.log
 ```
 
-## Testing
+## Demo Test
 
-### Start mock backend (separate terminal)
+Create the harmless AGRA test file:
+
 ```powershell
-python mock_backend.py
+Set-Content C:\watched_folder\agra_visible_test.txt "AGRA-EDR-TEST-MALWARE"
 ```
 
-### Drop test files
-```powershell
-New-Item -ItemType File -Path "C:/watched_folder/ransomware_sample.exe"
-New-Item -ItemType File -Path "C:/watched_folder/suspicious_tool.exe"
-New-Item -ItemType File -Path "C:/watched_folder/notepad_backup.exe"
+Expected output:
+
+```text
+[DETECT] New file: C:\watched_folder\agra_visible_test.txt
+[SCAN] Scoring agra_visible_test.txt ...
+[TEST] AGRA test signature detected.
+[RESULT] agra_visible_test.txt: score=100, class=malicious
+[BLOCK] STOPPED THREAT - deleted file: C:\watched_folder\agra_visible_test.txt
 ```
 
-### Expected output
+## Files
+
+```text
+main.py            entry point and logging
+agent.py           watchdog worker and blocking/deletion
+scorer.py          model loading, scoring, test signatures
+alerter.py         POSTs alerts to backend
+config.py          watched folders, thresholds, backend URL
+AgraSecurity.spec  PyInstaller build config
 ```
-[DETECTED] C:/watched_folder/ransomware_sample.exe
-[SCORED] ransomware_sample.exe → malicious (0.95)
-[ALERT SENT] ransomware_sample.exe → malicious (0.95)
-[DELETED] C:/watched_folder/ransomware_sample.exe
-```
-
-## File Structure
-```
-agent/
-├── main.py          # entry point, file watcher
-├── scorer.py        # scoring logic, model integration
-├── alerter.py       # sends alerts to backend
-├── config.py        # all configuration
-├── tray_icon.py     # system tray icon
-└── mock_backend.py  # local backend for testing
-```
-
-## Verdicts
-
-| Verdict | Score Range | Action |
-|---|---|---|
-| Benign | 0.0 — 0.4 | No action, alert logged |
-| Suspicious | 0.4 — 0.7 | Popup warning, alert logged |
-| Malicious | 0.7 — 1.0 | File deleted, popup warning, alert logged |
-
-## Troubleshooting
-
-| Problem | Fix |
-|---|---|
-| No output when file dropped | Verify watched path exists and matches config.py |
-| Alert failed — backend unreachable | Start mock_backend.py or update BACKEND_URL |
-| Popup not showing | Run `pip install plyer` again |
-| File not deleted | Check write permissions on watched folder |
-| PIL not found | Run `pip install Pillow` |
