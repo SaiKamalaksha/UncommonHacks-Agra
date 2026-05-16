@@ -1,6 +1,9 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from contextlib import asynccontextmanager
 from typing import List
-import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from passlib.context import CryptContext
@@ -24,7 +27,11 @@ def verify_password(password: str, hashed: str) -> bool:
 
 def create_token(email: str) -> str:
     expire = datetime.utcnow() + timedelta(hours=TOKEN_EXPIRE_HOURS)
-    return jwt.encode({"sub": email, "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(
+        {"sub": email, "exp": expire},
+        SECRET_KEY,
+        algorithm=ALGORITHM
+    )
 
 def decode_token(token: str) -> str:
     try:
@@ -36,7 +43,6 @@ def decode_token(token: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     database.init_db()
-    # create default test user on startup
     existing = database.get_user("test@agra.com")
     if not existing:
         database.create_user("test@agra.com", hash_password("agra1234"))
@@ -52,7 +58,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── auth endpoints ───────────────────────────────────────────────────
+# ── auth ─────────────────────────────────────────────────────────────
 @app.post("/login", response_model=TokenOut)
 def login(body: UserLogin):
     user = database.get_user(body.email)
@@ -77,7 +83,7 @@ def verify_token(body: dict):
         raise HTTPException(status_code=401, detail="Invalid token")
     return {"email": email, "valid": True}
 
-# ── alert endpoints ──────────────────────────────────────────────────
+# ── alerts ────────────────────────────────────────────────────────────
 @app.get("/api/alerts", response_model=List[AlertOut])
 def get_alerts(limit: int = 50):
     return database.get_recent_alerts(limit)
