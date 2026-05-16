@@ -1,49 +1,31 @@
+# Dependencies (Fixed for your nested folder)
+frontend/node_modules/
+node_modules/
+.pnp
+.pnp.js
+
+# Production / Builds (Fixed for your nested folder)
+frontend/dist/
+dist/
+build/
+out/
+
 # Python
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
-*.pyd
-.Python
-*.egg-info/
-dist/
-build/
-*.spec
 
-# Virtual environments
-venv/
-env/
+# Virtual environment
+.venv/
+
+# Local environment variables
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Model files
-*.txt
-*.pkl
-*.joblib
-*.h5
-*.onnx
-
-# Database
-*.db
-*.sqlite
-
-# Logs
-*.log
-local_alerts.log
-
-# PyInstaller
-dist/
-build/
-
-# IDE
-.vscode/
-.idea/
-*.suo
-*.user
-
-# OS
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# Secrets
-config_secret.py
-.env
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

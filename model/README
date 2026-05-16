@@ -1,0 +1,105 @@
+# Model
+
+This folder contains the EMBER2024 malware classification and clustering pipeline.
+
+## Setup
+
+```bash
+git clone https://github.com/FutureComputing4AI/EMBER2024.git
+cd EMBER2024 && pip install .
+cd ..
+pip install lightgbm scikit-learn hdbscan umap-learn tqdm huggingface_hub
+```
+
+## Run
+
+**Test run (PDF subset, ~200 MB):**
+
+```bash
+python model/ember2024_pipeline.py --data-dir ./ember_data --file-type PDF
+```
+
+**Limit training data to 1 GB:**
+
+```bash
+python model/ember2024_pipeline.py --data-dir ./ember_data --file-type PDF --max-gb 1
+```
+
+**Skip download if data is already on disk:**
+
+```bash
+python model/ember2024_pipeline.py --data-dir ./ember_data --skip-download --max-gb 1
+```
+
+**Full dataset:**
+
+```bash
+python model/ember2024_pipeline.py --data-dir ./ember_data --file-type all --max-gb 1
+```
+
+**Evaluate trained models:**
+
+```bash
+python model/evaluate_models.py
+```
+
+## Output Files
+
+| File                           | Description                              |
+| ------------------------------ | ---------------------------------------- |
+| `lgbm_classifier.model`        | LightGBM malicious/benign classifier     |
+| `random_forest_classifier.pkl` | Random Forest classifier                 |
+| `kmeans_clusterer.pkl`         | K-Means clustering model                 |
+| `hdbscan_clusterer.pkl`        | HDBSCAN clustering model                 |
+| `cluster_scaler.pkl`           | Scaler used for clustering preprocessing |
+| `cluster_pca.pkl`              | PCA used for clustering preprocessing    |
+| `training_report.txt`          | Metrics summary from last training run   |
+| `evaluation.png`               | Visual evaluation charts                 |
+
+## Model Performance
+
+Models were trained on 1 GB of PDF file data from the EMBER2024 dataset and evaluated on 24,000 test files (12,000 benign, 12,000 malicious).
+
+### LightGBM (best model)
+
+| Metric              | Score  | Meaning                                                         |
+| ------------------- | ------ | --------------------------------------------------------------- |
+| AUC                 | 0.9913 | How well it ranks malicious above benign (max = 1.0)            |
+| Accuracy            | 0.955  | Correctly classified 95.5% of all files                         |
+| Precision           | 0.993  | When it flags a file as malicious, it's right 99.3% of the time |
+| Recall              | 0.924  | Catches 92.4% of all malicious files                            |
+| F1                  | 0.957  | Combined precision + recall score                               |
+| False Positive Rate | 0.007  | Only 0.7% of benign files are wrongly flagged                   |
+| False Negative Rate | 0.075  | 7.5% of malicious files slip through                            |
+
+### Random Forest
+
+| Metric              | Score  | Meaning                                            |
+| ------------------- | ------ | -------------------------------------------------- |
+| AUC                 | 0.9891 | Slightly behind LightGBM                           |
+| Accuracy            | 0.950  | Correctly classified 95.0% of all files            |
+| Precision           | 0.994  | When it flags a file, it's right 99.4% of the time |
+| Recall              | 0.904  | Catches 90.4% of all malicious files               |
+| F1                  | 0.947  | Combined precision + recall score                  |
+| False Positive Rate | 0.005  | Fewer false alarms than LightGBM                   |
+| False Negative Rate | 0.096  | Misses more malicious files than LightGBM          |
+
+### Confusion Matrix Breakdown (LightGBM, 24,000 test files)
+
+|                        | Predicted Benign | Predicted Malicious |
+| ---------------------- | ---------------- | ------------------- |
+| **Actually Benign**    | 11,918 ✅        | 82 ❌ (false alarm) |
+| **Actually Malicious** | 906 ❌ (missed)  | 11,094 ✅           |
+
+**LightGBM is the recommended model** — it catches more malware (higher recall) at the cost of slightly more false alarms, which is the right tradeoff for a security tool. Performance is expected to improve further when trained on the full dataset.
+
+## Available File Types
+
+| Type  | Size    | Notes                      |
+| ----- | ------- | -------------------------- |
+| PDF   | ~200 MB | Smallest, good for testing |
+| ELF   | ~100 MB | Even smaller               |
+| APK   | ~1.2 GB | Android apps               |
+| Win32 | ~28 GB  | Windows 32-bit executables |
+| Win64 | ~15 GB  | Windows 64-bit executables |
+| all   | ~50+ GB | Full dataset               |
