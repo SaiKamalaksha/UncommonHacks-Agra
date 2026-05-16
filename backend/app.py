@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from typing import List
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from passlib.context import CryptContext
+import bcrypt
 from jose import jwt
 from datetime import datetime, timedelta
 import database
@@ -17,13 +17,11 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "agra_secret_hackathon_key")
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 72
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 def verify_password(password: str, hashed: str) -> bool:
-    return pwd_context.verify(password, hashed)
+    return bcrypt.checkpw(password.encode(), hashed.encode())
 
 def create_token(email: str) -> str:
     expire = datetime.utcnow() + timedelta(hours=TOKEN_EXPIRE_HOURS)
