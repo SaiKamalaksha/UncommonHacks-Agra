@@ -1,17 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
-const BACKEND_URL = 'http://127.0.0.1:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
 
-function getVerdict(score) {
-  if (score > 70) return 'Malicious';
-  if (score >= 40) return 'Suspicious';
-  return 'Benign';
-}
-
-function getAlertStyles(score) {
-  const verdict = getVerdict(score);
-
-  if (verdict === 'Malicious') {
+function getAlertStyles(verdict) {
+  if (verdict === 'Malicious' || verdict === 'malicious') {
     return {
       row: 'border-red-500/20 bg-red-500/10 text-red-100',
       badge: 'border-red-500/30 bg-red-500/15 text-red-400',
@@ -19,7 +11,7 @@ function getAlertStyles(score) {
     };
   }
 
-  if (verdict === 'Suspicious') {
+  if (verdict === 'Suspicious' || verdict === 'suspicious') {
     return {
       row: 'border-amber-500/20 bg-amber-500/10 text-amber-100',
       badge: 'border-amber-500/30 bg-amber-500/15 text-amber-300',
@@ -270,8 +262,8 @@ export default function Dashboard({ user, onLogout }) {
                   </div>
                 )}
                 {alerts.map((alert) => {
-                  const styles = getAlertStyles(alert.score);
-                  const verdict = getVerdict(alert.score);
+                  const verdict = alert.verdict;
+                  const styles = getAlertStyles(verdict);
                   const isExpanded = expandedAlert === alert.id;
 
                   return (
