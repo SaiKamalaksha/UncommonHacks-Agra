@@ -1,24 +1,32 @@
 import requests
-from config import BACKEND_URL
 
-def send_alert(alert: dict):
-    try:
-        response = requests.post(
-            f"{BACKEND_URL}/alert",
-            json=alert,
-            timeout=5
-        )
-        if response.status_code == 200:
-            print(f"[ALERT SENT] {alert['filename']} → {alert['verdict']} ({alert['threat_score']:.2f})")
-        else:
-            print(f"[ALERT FAILED] Status {response.status_code}")
-    except requests.exceptions.ConnectionError:
-        print(f"[ALERT FAILED] Backend unreachable, storing locally")
-        store_locally(alert)
-    except Exception as e:
-        print(f"[ALERT ERROR] {e}")
+from agent.config import AgentConfig
+from agent.scorer import ScanResult
 
-def store_locally(alert: dict):
-    # fallback if backend is down, write to local log
-    with open("local_alerts.log", "a") as f:
-        f.write(str(alert) + "\n")
+
+class Alerter:
+    def __init__(self, config: AgentConfig):
+        self.backend_url = config.backend_url
+
+    def send_alert(self, result: ScanResult) -> bool:
+        payload = {
+            "timestamp": result.timestamp,
+            "filename": result.filename,
+            "filepath": result.filepath,
+            "file_hash": result.file_hash_sha256,
+            "score": result.threat_score,
+            "classification": result.classification,
+            "lgbm_score": result.lgbm_score,
+            "rf_score": result.rf_score,
+            "cluster_id": result.cluster_id,
+            "hdbscan_cluster_id": result.hdbscan_cluster_id,
+            "llm_analysis": result.llm_analysis,
+        }
+        try:
+            r = requests.post(
+                f"{self.backend_url}/api/alerts", json=payload, timeout=5
+            )
+            return r.status_code == 200
+        except Exception as e:
+            print(f"  Failed to send alert: {e}")
+            return False
