@@ -91,3 +91,51 @@ def get_stats() -> dict:
            FROM alerts"""
     ).fetchone()
     return dict(row)
+
+def init_db():
+    conn = _get_conn()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            filename TEXT,
+            filepath TEXT,
+            file_hash TEXT,
+            score INTEGER,
+            classification TEXT,
+            lgbm_score REAL,
+            rf_score REAL,
+            cluster_id INTEGER,
+            hdbscan_cluster_id INTEGER DEFAULT -1,
+            llm_analysis TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+
+def create_user(email: str, password_hash: str) -> int:
+    conn = _get_conn()
+    try:
+        cur = conn.execute(
+            "INSERT INTO users (email, password_hash) VALUES (?, ?)",
+            (email, password_hash)
+        )
+        conn.commit()
+        return cur.lastrowid
+    except sqlite3.IntegrityError:
+        return None
+
+def get_user(email: str) -> dict:
+    conn = _get_conn()
+    row = conn.execute(
+        "SELECT * FROM users WHERE email = ?", (email,)
+    ).fetchone()
+    return dict(row) if row else None
