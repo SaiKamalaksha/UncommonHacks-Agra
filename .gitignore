@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.spec
+
+# Virtual environments
+venv/
+env/
+.env
+
+# Model files
+*.txt
+*.pkl
+*.joblib
+*.h5
+*.onnx
+
+# Database
+*.db
+*.sqlite
+
+# Logs
+*.log
+local_alerts.log
+
+# PyInstaller
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets
+config_secret.py
+.env
