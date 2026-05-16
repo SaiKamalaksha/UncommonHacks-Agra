@@ -1,9 +1,15 @@
 // src/Auth.jsx
 import React, { useState } from 'react';
-import { auth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from './firebase';
+import {
+  auth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
+} from './firebase';
 
 export default function Auth({ onLoginSuccess }) {
   const [isRegistering, setIsRegistering] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -16,7 +22,10 @@ export default function Auth({ onLoginSuccess }) {
 
     try {
       if (isRegistering) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(credential.user, {
+          displayName: name.trim(),
+        });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -46,6 +55,19 @@ export default function Auth({ onLoginSuccess }) {
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4 rounded-md shadow-sm">
+            {isRegistering && (
+              <div>
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Name</label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="mt-1 w-full rounded-lg bg-[#0B1B3D] border border-slate-600 px-4 py-3 text-white placeholder-slate-500 focus:border-[#BBD987] focus:outline-none transition-colors"
+                  placeholder="Name"
+                />
+              </div>
+            )}
             <div>
               <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Email Address</label>
               <input
@@ -54,7 +76,7 @@ export default function Auth({ onLoginSuccess }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="mt-1 w-full rounded-lg bg-[#0B1B3D] border border-slate-600 px-4 py-3 text-white placeholder-slate-500 focus:border-[#BBD987] focus:outline-none transition-colors"
-                placeholder="admin@agra.io"
+                placeholder="name@email.com"
               />
             </div>
             <div>
@@ -83,7 +105,11 @@ export default function Auth({ onLoginSuccess }) {
 
         <div className="text-center text-sm">
           <button
-            onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
+            onClick={() => {
+              setIsRegistering(!isRegistering);
+              setError('');
+              setName('');
+            }}
             className="font-medium text-[#BBD987] hover:underline focus:outline-none"
           >
             {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Register"}
