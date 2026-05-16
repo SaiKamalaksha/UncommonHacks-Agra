@@ -1,0 +1,16 @@
+# Dataset (too large for git)
+ember_data/
+
+# Report
+training_report.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+.venv/
+
+# EMBER2024 cloned repo
+EMBER2024/

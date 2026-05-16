@@ -1,0 +1,61 @@
+# Model
+
+This folder contains the EMBER2024 malware classification and clustering pipeline.
+
+## Setup
+
+```bash
+git clone https://github.com/FutureComputing4AI/EMBER2024.git
+cd EMBER2024 && pip install .
+cd ..
+pip install lightgbm scikit-learn hdbscan umap-learn tqdm huggingface_hub
+```
+
+## Run
+
+**Test run (PDF subset, ~200 MB):**
+
+```bash
+python model/ember2024_pipeline.py --data-dir ./ember_data --file-type PDF
+```
+
+**Limit training data to 1 GB:**
+
+```bash
+python model/ember2024_pipeline.py --data-dir ./ember_data --file-type PDF --max-gb 1
+```
+
+**Skip download if data is already on disk:**
+
+```bash
+python model/ember2024_pipeline.py --data-dir ./ember_data --skip-download --max-gb 1
+```
+
+**Full dataset:**
+
+```bash
+python model/ember2024_pipeline.py --data-dir ./ember_data --file-type all --max-gb 1
+```
+
+## Output Files
+
+| File                           | Description                              |
+| ------------------------------ | ---------------------------------------- |
+| `lgbm_classifier.model`        | LightGBM malicious/benign classifier     |
+| `random_forest_classifier.pkl` | Random Forest classifier                 |
+| `kmeans_clusterer.pkl`         | K-Means clustering model                 |
+| `hdbscan_clusterer.pkl`        | HDBSCAN clustering model                 |
+| `cluster_scaler.pkl`           | Scaler used for clustering preprocessing |
+| `cluster_pca.pkl`              | PCA used for clustering preprocessing    |
+| `training_report.txt`          | Metrics summary from last training run   |
+
+## Available File Types
+
+| Type  | Size    | Notes                      |
+| ----- | ------- | -------------------------- |
+| PDF   | ~200 MB | Smallest, good for testing |
+| ELF   | ~100 MB | Even smaller               |
+| APK   | ~1.2 GB | Android apps               |
+| Win32 | ~28 GB  | Windows 32-bit executables |
+| Win64 | ~15 GB  | Windows 64-bit executables |
+| all   | ~50+ GB | Full dataset               |
