@@ -1,7 +1,7 @@
 // src/App.jsx
 import React, { useState, useEffect } from 'react';
 import { auth, onAuthStateChanged, signOut } from './firebase';
-import Auth from './components/Auth';
+import Auth from './Auth';
 // import Dashboard from './components/Dashboard'; // Your dashboard component
 
 export default function App() {

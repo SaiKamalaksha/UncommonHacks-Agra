@@ -1,6 +1,6 @@
-// src/components/Auth.jsx
+// src/Auth.jsx
 import React, { useState } from 'react';
-import { auth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from '../firebase';
+import { auth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from './firebase';
 
 export default function Auth({ onLoginSuccess }) {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -20,10 +20,9 @@ export default function Auth({ onLoginSuccess }) {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
-      onLoginSuccess(); // Tell App.jsx we are logged in
+      onLoginSuccess();
     } catch (err) {
-      // Clean up common Firebase error messages for the UI
-      setError(err.message.replace("Firebase: ", ""));
+      setError(err.message.replace('Firebase: ', ''));
     } finally {
       setLoading(false);
     }
@@ -32,8 +31,6 @@ export default function Auth({ onLoginSuccess }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0B1B3D] px-4">
       <div className="w-full max-w-md space-y-8 rounded-xl bg-[#2F3E46]/40 p-8 shadow-2xl backdrop-blur-md border border-slate-700">
-        
-        {/* AGRA Branding */}
         <div className="text-center">
           <h2 className="text-4xl font-extrabold tracking-wider text-white">AGRA</h2>
           <p className="mt-2 text-sm text-slate-300">
@@ -41,14 +38,12 @@ export default function Auth({ onLoginSuccess }) {
           </p>
         </div>
 
-        {/* Error Alert */}
         {error && (
           <div className="rounded-md bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400 text-center">
             {error}
           </div>
         )}
 
-        {/* Form */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4 rounded-md shadow-sm">
             <div>
@@ -70,12 +65,11 @@ export default function Auth({ onLoginSuccess }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 w-full rounded-lg bg-[#0B1B3D] border border-slate-600 px-4 py-3 text-white placeholder-slate-500 focus:border-[#BBD987] focus:outline-none transition-colors"
-                placeholder="••••••••"
+                placeholder="Password"
               />
             </div>
           </div>
 
-          {/* Submit Button using your #BBD987 Accent */}
           <div>
             <button
               type="submit"
@@ -87,7 +81,6 @@ export default function Auth({ onLoginSuccess }) {
           </div>
         </form>
 
-        {/* Toggle Switch */}
         <div className="text-center text-sm">
           <button
             onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
@@ -96,7 +89,6 @@ export default function Auth({ onLoginSuccess }) {
             {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Register"}
           </button>
         </div>
-
       </div>
     </div>
   );
