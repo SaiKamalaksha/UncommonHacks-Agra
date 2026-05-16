@@ -1,13 +1,14 @@
-import os
 from contextlib import asynccontextmanager
 from typing import List
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from passlib.context import CryptContext
 from jose import jwt
 from datetime import datetime, timedelta
-from backend import database
-from backend.models import AlertIn, AlertOut, StatsOut, UserRegister, UserLogin, TokenOut
+import database
+import models
+from models import AlertIn, AlertOut, StatsOut, UserRegister, UserLogin, TokenOut
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "agra_secret_hackathon_key")
 ALGORITHM = "HS256"
