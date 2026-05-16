@@ -10,20 +10,13 @@ dist/
 build/
 out/
 
-# Firebase hosting and local cache logs
-.firebase/
-firebase-debug.log
-ui-debug.log
-*.firebase.json
+# Python
+__pycache__/
+*.pyc
+*.pyo
 
-# IDE / Editor configurations
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.swp
+# Virtual environment
+.venv/
 
 # Local environment variables
 .env
