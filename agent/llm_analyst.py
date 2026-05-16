@@ -1,3 +1,5 @@
+from typing import Optional
+
 import requests
 
 from agent.scorer import ScanResult
@@ -16,7 +18,7 @@ class LLMAnalyst:
         except Exception:
             return False
 
-    def analyze(self, result: ScanResult) -> str | None:
+    def analyze(self, result: ScanResult) -> Optional[str]:
         if not self.available:
             self.available = self._check_availability()
             if not self.available:

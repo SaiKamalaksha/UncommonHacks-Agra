@@ -1,7 +1,9 @@
 import os
 import queue
+import time
 import threading
 from pathlib import Path
+from typing import Optional
 
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
@@ -15,20 +17,35 @@ from agent.scorer import Scorer
 class _ScanHandler(FileSystemEventHandler):
     """Enqueues new/modified files that match configured extensions."""
 
+    # Browser temp extensions to ignore (file not fully written yet)
+    _TEMP_EXTS = {".crdownload", ".part", ".tmp", ".download", ".partial", ".opdownload"}
+
     def __init__(self, config: AgentConfig, scan_queue: queue.Queue):
         super().__init__()
         self.extensions = set(ext.lower() for ext in config.scan_extensions)
         self.max_bytes = config.max_file_size_mb * 1024 * 1024
         self.scan_queue = scan_queue
+        self._seen: dict = {}
 
     def _should_scan(self, path: str) -> bool:
         p = Path(path)
         if not p.is_file():
             return False
+        if p.suffix.lower() in self._TEMP_EXTS:
+            return False
         if p.suffix.lower() not in self.extensions:
             return False
-        if p.stat().st_size > self.max_bytes:
+        try:
+            size = p.stat().st_size
+            if size == 0 or size > self.max_bytes:
+                return False
+        except OSError:
             return False
+        # Debounce: ignore same file within 5 seconds
+        now = time.time()
+        if now - self._seen.get(path, 0) < 5:
+            return False
+        self._seen[path] = now
         return True
 
     def on_created(self, event):
@@ -41,6 +58,12 @@ class _ScanHandler(FileSystemEventHandler):
             print(f"  [DETECT] Modified file: {event.src_path}")
             self.scan_queue.put(event.src_path)
 
+    def on_moved(self, event):
+        """Catches browser downloads: they write to .crdownload/.part then rename."""
+        if not event.is_directory and self._should_scan(event.dest_path):
+            print(f"  [DETECT] Download complete: {Path(event.dest_path).name}")
+            self.scan_queue.put(event.dest_path)
+
 
 class FileWatcher:
     """Watches configured directories and dispatches scan jobs to a worker thread."""
@@ -49,7 +72,7 @@ class FileWatcher:
         self,
         config: AgentConfig,
         scorer: Scorer,
-        llm: LLMAnalyst | None,
+        llm: Optional[LLMAnalyst],
         alerter: Alerter,
     ):
         self.config = config
@@ -58,7 +81,7 @@ class FileWatcher:
         self.alerter = alerter
         self.scan_queue: queue.Queue = queue.Queue()
         self._observer = Observer()
-        self._worker_thread: threading.Thread | None = None
+        self._worker_thread: Optional[threading.Thread] = None
 
     def start(self):
         handler = _ScanHandler(self.config, self.scan_queue)

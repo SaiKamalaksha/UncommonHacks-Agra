@@ -19,6 +19,7 @@ import hashlib
 import math
 import os
 import pickle
+import platform
 import queue
 import signal
 import sqlite3
@@ -31,6 +32,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
+
+IS_WINDOWS = platform.system() == "Windows"
 
 warnings.filterwarnings("ignore")
 
@@ -276,10 +279,18 @@ class ScanResult:
 
 def sha256_file(filepath: str) -> str:
     h = hashlib.sha256()
-    with open(filepath, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
+    # Retry on Windows where files may be briefly locked by another process
+    for attempt in range(3):
+        try:
+            with open(filepath, "rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    h.update(chunk)
+            return h.hexdigest()
+        except PermissionError:
+            if attempt < 2:
+                time.sleep(0.5)
+            else:
+                raise
 
 
 NUM_FEATURES = 2568  # must match trained models
@@ -367,7 +378,17 @@ def thrember_features(filepath: str) -> np.ndarray:
     """Extract features using thrember's PEFeatureExtractor directly on the file bytes."""
     from thrember.features import PEFeatureExtractor
     extractor = PEFeatureExtractor()
-    bytez = Path(filepath).read_bytes()
+    # Use open() with retry for Windows file-lock resilience
+    for attempt in range(3):
+        try:
+            with open(filepath, "rb") as f:
+                bytez = f.read()
+            break
+        except PermissionError:
+            if attempt < 2:
+                time.sleep(0.5)
+            else:
+                raise
     vec = extractor.feature_vector(bytez)
     return vec.reshape(1, -1)
 
@@ -581,7 +602,8 @@ class ScanHandler(FileSystemEventHandler):
         self._seen: dict[str, float] = {}
         self._max_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
         # Browser temp extensions to ignore (file not ready yet)
-        self._temp_exts = {".crdownload", ".part", ".tmp", ".download", ".partial"}
+        # Covers Chrome (.crdownload), Firefox (.part), Edge (.partial), generic (.tmp, .download)
+        self._temp_exts = {".crdownload", ".part", ".tmp", ".download", ".partial", ".opdownload"}
 
     def _ok(self, path: str) -> bool:
         p = Path(path)
@@ -636,8 +658,9 @@ def worker(scorer: Scorer, llm: LLMAnalyst):
     while True:
         filepath = scan_queue.get()
         try:
-            # Delay to let browser finish writing/renaming the file
-            time.sleep(1.0)
+            # Delay to let browser/OS finish writing/renaming the file
+            # Windows holds file locks longer than Linux
+            time.sleep(2.0 if IS_WINDOWS else 1.0)
 
             if not Path(filepath).exists():
                 print(f"  [SKIP] File gone: {filepath}")
@@ -679,11 +702,21 @@ def worker(scorer: Scorer, llm: LLMAnalyst):
 
             # Auto-delete files classified as malicious
             if result.classification == "malicious":
-                try:
-                    os.remove(filepath)
-                    print(f"  [DELETE] Removed malicious file: {result.filename}")
-                except OSError as del_err:
-                    print(f"  [DELETE] Failed to remove {result.filename}: {del_err}")
+                deleted = False
+                for attempt in range(3):
+                    try:
+                        os.remove(filepath)
+                        print(f"  [DELETE] Removed malicious file: {result.filename}")
+                        deleted = True
+                        break
+                    except PermissionError:
+                        # Windows may hold a lock briefly after scanning
+                        time.sleep(1)
+                    except OSError as del_err:
+                        print(f"  [DELETE] Failed to remove {result.filename}: {del_err}")
+                        break
+                if not deleted and os.path.exists(filepath):
+                    print(f"  [DELETE] Could not remove {result.filename} (file may be locked)")
 
             print(f"  {'─' * 50}")
 
@@ -710,6 +743,13 @@ def main():
     parser.add_argument("--no-llm", action="store_true", help="Disable LLM analysis")
     parser.add_argument("--no-npu", action="store_true", help="Disable NPU/ONNX acceleration")
     args = parser.parse_args()
+
+    # Ensure UTF-8 output on Windows
+    if IS_WINDOWS:
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
 
     print()
     print("=" * 62)
@@ -785,7 +825,9 @@ def main():
         sys.exit(0)
 
     signal.signal(signal.SIGINT, shutdown)
-    signal.signal(signal.SIGTERM, shutdown)
+    # SIGTERM is not available on Windows
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, shutdown)
 
     # Run uvicorn in the main thread (it handles signals properly)
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")

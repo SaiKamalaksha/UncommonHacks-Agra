@@ -1,5 +1,6 @@
 import signal
 import sys
+import time
 
 from agent.alerter import Alerter
 from agent.agent import FileWatcher
@@ -47,9 +48,15 @@ def main():
         sys.exit(0)
 
     signal.signal(signal.SIGINT, shutdown)
-    signal.signal(signal.SIGTERM, shutdown)
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, shutdown)
 
-    signal.pause()
+    # signal.pause() is not available on Windows — use a sleep loop instead
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        shutdown(None, None)
 
 
 if __name__ == "__main__":
