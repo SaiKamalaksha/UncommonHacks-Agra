@@ -1,20 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
-const initialAlerts = [
-  { id: 1, timestamp: '14:02:11', filename: 'notepad.exe', score: 8 },
-  { id: 2, timestamp: '14:03:27', filename: 'unknown_patch.exe', score: 58 },
-  { id: 3, timestamp: '14:04:43', filename: 'mimikatz.exe', score: 96 },
-  { id: 4, timestamp: '14:06:05', filename: 'invoice_macro.xlsm', score: 74 },
-];
-
-const simulatedEvents = [
-  { filename: 'kernel_update.tmp', score: 24 },
-  { filename: 'browser_cache.bin', score: 12 },
-  { filename: 'credential_dump.ps1', score: 91 },
-  { filename: 'signed_driver.sys', score: 33 },
-  { filename: 'remote_payload.dll', score: 82 },
-  { filename: 'unknown_patch.exe', score: 61 },
-];
+const BACKEND_URL = 'http://127.0.0.1:8000';
 
 function getVerdict(score) {
   if (score > 70) return 'Malicious';
@@ -72,53 +58,43 @@ function Toggle({ label, enabled, onChange }) {
 }
 
 export default function Dashboard({ user, onLogout }) {
-  const [alerts, setAlerts] = useState(initialAlerts);
+  const [alerts, setAlerts] = useState([]);
+  const [metrics, setMetrics] = useState({ total_scanned: 0, threats: 0, warnings: 0, safe: 0 });
   const [threshold, setThreshold] = useState(70);
   const [realTimeMonitoring, setRealTimeMonitoring] = useState(true);
   const [npuAcceleration, setNpuAcceleration] = useState(true);
+  const [expandedAlert, setExpandedAlert] = useState(null);
+  const [backendOnline, setBackendOnline] = useState(false);
 
   useEffect(() => {
-    const pollAlerts = setInterval(() => {
-      /*
-        Replace this mock updater with your live backend later:
-
-        const response = await fetch('YOUR_NGROK_URL/alerts');
-        const liveAlerts = await response.json();
-        setAlerts(liveAlerts);
-      */
-      setAlerts((currentAlerts) => {
-        const event = simulatedEvents[Math.floor(Math.random() * simulatedEvents.length)];
-        const nextAlert = {
-          id: Date.now(),
-          timestamp: new Date().toLocaleTimeString([], {
-            hour12: false,
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          }),
-          filename: event.filename,
-          score: event.score,
-        };
-
-        return [nextAlert, ...currentAlerts].slice(0, 8);
-      });
-    }, 3000);
-
-    return () => clearInterval(pollAlerts);
+    const fetchAlerts = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/alerts?limit=8`);
+        const data = await res.json();
+        setAlerts(data);
+        setBackendOnline(true);
+      } catch {
+        setBackendOnline(false);
+      }
+    };
+    fetchAlerts();
+    const interval = setInterval(fetchAlerts, 3000);
+    return () => clearInterval(interval);
   }, []);
 
-  const metrics = useMemo(() => {
-    const threats = alerts.filter((alert) => alert.score > 70).length;
-    const warnings = alerts.filter((alert) => alert.score >= 40 && alert.score <= 70).length;
-    const safe = alerts.filter((alert) => alert.score < 40).length;
-
-    return {
-      scanned: 12847 + alerts.length,
-      threats,
-      warnings,
-      safe,
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/stats`);
+        setMetrics(await res.json());
+      } catch {
+        /* keep last known metrics */
+      }
     };
-  }, [alerts]);
+    fetchStats();
+    const interval = setInterval(fetchStats, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const totalChart = Math.max(metrics.threats + metrics.warnings + metrics.safe, 1);
   const threatPercent = (metrics.threats / totalChart) * 100;
@@ -136,12 +112,16 @@ export default function Dashboard({ user, onLogout }) {
           </div>
 
           <div className="flex flex-col gap-3 sm:items-end">
-            <div className="inline-flex w-fit items-center gap-3 rounded-full border border-[#BBD987]/30 bg-[#BBD987]/10 px-4 py-2 text-sm font-semibold text-[#BBD987]">
+            <div className={`inline-flex w-fit items-center gap-3 rounded-full border px-4 py-2 text-sm font-semibold ${
+              backendOnline
+                ? 'border-[#BBD987]/30 bg-[#BBD987]/10 text-[#BBD987]'
+                : 'border-red-500/30 bg-red-500/10 text-red-400'
+            }`}>
               <span className="relative flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-[#BBD987] opacity-75" />
-                <span className="relative inline-flex h-3 w-3 rounded-full bg-[#BBD987]" />
+                <span className={`absolute inline-flex h-full w-full animate-pulse rounded-full opacity-75 ${backendOnline ? 'bg-[#BBD987]' : 'bg-red-500'}`} />
+                <span className={`relative inline-flex h-3 w-3 rounded-full ${backendOnline ? 'bg-[#BBD987]' : 'bg-red-500'}`} />
               </span>
-              Agent State: Active on NPU
+              {backendOnline ? 'Agent State: Active' : 'Agent State: Offline'}
             </div>
             {onLogout && (
               <button
@@ -222,7 +202,7 @@ export default function Dashboard({ user, onLogout }) {
           <div className="grid gap-4 rounded-lg border border-white/10 bg-[#2F3E46]/40 p-5 shadow-2xl shadow-black/20">
             <div className="rounded-lg border border-white/10 bg-[#0B1B3D]/60 p-5">
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Total Files Scanned</p>
-              <p className="mt-3 text-5xl font-black tracking-wide text-white">{metrics.scanned.toLocaleString()}</p>
+              <p className="mt-3 text-5xl font-black tracking-wide text-white">{metrics.total_scanned.toLocaleString()}</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-5">
@@ -277,26 +257,47 @@ export default function Dashboard({ user, onLogout }) {
           <div className="rounded-lg border border-white/10 bg-[#2F3E46]/40 p-5 shadow-2xl shadow-black/20">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-lg font-bold tracking-wide text-white">Live Alert Feed</h2>
-              <span className="font-mono text-xs uppercase tracking-[0.2em] text-slate-400">Polling: 3s</span>
+              <span className="font-mono text-xs uppercase tracking-[0.2em] text-slate-400">
+                {backendOnline ? 'Polling: 3s' : 'Backend offline'}
+              </span>
             </div>
 
             <div className="mt-5 max-h-[23rem] overflow-y-auto rounded-lg border border-white/10 bg-black/30 p-3 font-mono text-sm">
               <div className="grid min-w-[38rem] gap-3">
+                {alerts.length === 0 && (
+                  <div className="py-8 text-center text-slate-500">
+                    No alerts yet. Drop a file into a watched directory to trigger a scan.
+                  </div>
+                )}
                 {alerts.map((alert) => {
                   const styles = getAlertStyles(alert.score);
                   const verdict = getVerdict(alert.score);
+                  const isExpanded = expandedAlert === alert.id;
 
                   return (
-                    <div
-                      key={alert.id}
-                      className={`grid grid-cols-[5.5rem_1fr_7rem_4rem] items-center gap-3 rounded-lg border px-3 py-3 ${styles.row}`}
-                    >
-                      <span className="text-slate-300">{alert.timestamp}</span>
-                      <span className="truncate font-semibold text-white">{alert.filename}</span>
-                      <span className={`rounded-full border px-2 py-1 text-center text-xs font-black uppercase ${styles.badge}`}>
-                        {verdict}
-                      </span>
-                      <span className={`text-right font-black ${styles.score}`}>{alert.score}%</span>
+                    <div key={alert.id}>
+                      <div
+                        onClick={() => setExpandedAlert(isExpanded ? null : alert.id)}
+                        className={`grid grid-cols-[5.5rem_1fr_7rem_4rem] items-center gap-3 rounded-lg border px-3 py-3 cursor-pointer transition hover:brightness-110 ${styles.row}`}
+                      >
+                        <span className="text-slate-300">{alert.timestamp}</span>
+                        <span className="truncate font-semibold text-white">{alert.filename}</span>
+                        <span className={`rounded-full border px-2 py-1 text-center text-xs font-black uppercase ${styles.badge}`}>
+                          {verdict}
+                        </span>
+                        <span className={`text-right font-black ${styles.score}`}>{alert.score}%</span>
+                      </div>
+                      {isExpanded && alert.llm_analysis && (
+                        <div className="mt-1 rounded-lg border border-white/5 bg-[#0B1B3D]/80 px-4 py-3 text-xs leading-relaxed text-slate-300">
+                          <span className="font-bold text-[#BBD987]">LLM Analysis: </span>
+                          {alert.llm_analysis}
+                        </div>
+                      )}
+                      {isExpanded && !alert.llm_analysis && (
+                        <div className="mt-1 rounded-lg border border-white/5 bg-[#0B1B3D]/80 px-4 py-3 text-xs text-slate-500 italic">
+                          No LLM analysis available (ML-only mode)
+                        </div>
+                      )}
                     </div>
                   );
                 })}
