@@ -397,36 +397,27 @@ class Scorer:
     def __init__(self, use_npu: bool = True):
         print(f"  Loading models from {MODEL_DIR} ...")
 
-        # ── Try ONNX Runtime with OpenVINO/NPU acceleration ──
+        # ── Try ONNX Runtime with OpenVINO NPU/GPU (see model/onnx_sessions.py) ──
         self._onnx_lgbm = None
         self._onnx_rf = None
+        self._onnx_classify = None
         self._npu_active = False
 
-        lgbm_onnx = MODEL_DIR / "lgbm_classifier.onnx"
-        rf_onnx = MODEL_DIR / "random_forest_classifier.onnx"
-
-        if use_npu and lgbm_onnx.exists() and rf_onnx.exists():
+        if use_npu:
             try:
-                import onnxruntime as ort
+                import importlib.util
 
-                # Tree-ensemble ONNX models don't work with OpenVINO EP (dynamic rank issue).
-                # ONNX Runtime's CPU provider is already 200x+ faster than native sklearn
-                # thanks to its optimized C++ tree traversal.
-                # When NPU permissions are set up, neural-network models (future DNN classifier)
-                # can use OpenVINOExecutionProvider with device_type=NPU.
-                providers_to_try = [
-                    (["CPUExecutionProvider"], "ONNX-optimized"),
-                ]
-                for providers, label in providers_to_try:
-                    try:
-                        self._onnx_lgbm = ort.InferenceSession(str(lgbm_onnx), providers=providers)
-                        self._onnx_rf = ort.InferenceSession(str(rf_onnx), providers=providers)
-                        self._npu_active = True
-                        print(f"  ONNX Runtime loaded — mode: {label} (~200x faster)")
-                        break
-                    except Exception:
-                        continue
-            except ImportError:
+                spec = importlib.util.spec_from_file_location(
+                    "onnx_sessions", MODEL_DIR / "onnx_sessions.py"
+                )
+                onnx_mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(onnx_mod)
+                self._onnx_lgbm, self._onnx_rf, mode = onnx_mod.load_classifier_sessions(MODEL_DIR)
+                if self._onnx_lgbm is not None:
+                    self._onnx_classify = onnx_mod.onnx_classify
+                    self._npu_active = True
+                    print(f"  ONNX Runtime loaded — mode: {mode}")
+            except Exception:
                 pass
 
         # ── Fallback: native LightGBM + sklearn ──
@@ -468,12 +459,9 @@ class Scorer:
 
         # ── Classification ──
         if self._npu_active:
-            # ONNX Runtime path (NPU/OpenVINO accelerated)
-            lgbm_out = self._onnx_lgbm.run(None, {"input": features.astype(np.float32)})
-            lgbm_prob = float(lgbm_out[1][0][1])  # probabilities dict, class 1
-
-            rf_out = self._onnx_rf.run(None, {"input": features.astype(np.float32)})
-            rf_prob = float(rf_out[1][0][1])
+            lgbm_prob, rf_prob = self._onnx_classify(
+                self._onnx_lgbm, self._onnx_rf, features
+            )
         else:
             lgbm_prob = float(self.lgbm.predict(features)[0])
             rf_prob = float(self.rf.predict_proba(features)[0][1])

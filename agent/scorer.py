@@ -44,14 +44,38 @@ class EncryptedArchiveDetected(Exception):
 
 
 class Scorer:
-    def __init__(self, model_dir: str):
+    def __init__(self, model_dir: str, use_npu: bool = True):
         model_path = Path(model_dir)
         print(f"  Loading models from {model_path} ...")
 
+        self._onnx_lgbm = None
+        self._onnx_rf = None
+        self._onnx_classify = None
+        self._onnx_active = False
+        self.rf = None
+
+        if use_npu:
+            try:
+                import importlib.util
+
+                spec = importlib.util.spec_from_file_location(
+                    "onnx_sessions", model_path / "onnx_sessions.py"
+                )
+                onnx_mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(onnx_mod)
+                self._onnx_lgbm, self._onnx_rf, mode = onnx_mod.load_classifier_sessions(model_path)
+                if self._onnx_lgbm is not None:
+                    self._onnx_classify = onnx_mod.onnx_classify
+                    self._onnx_active = True
+                    print(f"  ONNX Runtime loaded — mode: {mode}")
+            except Exception:
+                pass
+
         self.lgbm = lgb.Booster(model_file=str(model_path / "lgbm_classifier.model"))
 
-        with open(model_path / "random_forest_classifier.pkl", "rb") as f:
-            self.rf = pickle.load(f)
+        if not self._onnx_active:
+            with open(model_path / "random_forest_classifier.pkl", "rb") as f:
+                self.rf = pickle.load(f)
 
         with open(model_path / "kmeans_clusterer.pkl", "rb") as f:
             self.kmeans = pickle.load(f)
@@ -215,8 +239,13 @@ class Scorer:
             )
 
         # --- Classification ---
-        lgbm_prob = float(self.lgbm.predict(features)[0])
-        rf_prob = float(self.rf.predict_proba(features)[0][1])
+        if self._onnx_active:
+            lgbm_prob, rf_prob = self._onnx_classify(
+                self._onnx_lgbm, self._onnx_rf, features
+            )
+        else:
+            lgbm_prob = float(self.lgbm.predict(features)[0])
+            rf_prob = float(self.rf.predict_proba(features)[0][1])
 
         blended = 0.7 * lgbm_prob + 0.3 * rf_prob
         threat_score = int(blended * 100)
