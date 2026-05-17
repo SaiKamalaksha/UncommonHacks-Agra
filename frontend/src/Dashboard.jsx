@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
 
@@ -44,14 +44,21 @@ export default function Dashboard({ user, onLogout }) {
   const [metrics, setMetrics] = useState({ total_scanned: 0, threats: 0, warnings: 0, safe: 0 });
   const [threshold, setThreshold] = useState(70);
   const [realTimeMonitoring, setRealTimeMonitoring] = useState(true);
-  const [npuAcceleration, setNpuAcceleration] = useState(true);
+  const [npuAcceleration, setNpuAcceleration] = useState(false);
   const [expandedAlert, setExpandedAlert] = useState(null);
   const [backendOnline, setBackendOnline] = useState(false);
 
   useEffect(() => {
+    if (!user?.email) {
+      setAlerts([]);
+      return;
+    }
+
     const fetchAlerts = async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/alerts?limit=8`);
+        const res = await fetch(
+          `${BACKEND_URL}/api/alerts?limit=8&user_email=${encodeURIComponent(user.email)}`
+        );
         const data = await res.json();
         setAlerts(data);
         setBackendOnline(true);
@@ -62,19 +69,26 @@ export default function Dashboard({ user, onLogout }) {
     fetchAlerts();
     const interval = setInterval(fetchAlerts, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
+    if (!user?.email) {
+      setMetrics({ total_scanned: 0, threats: 0, warnings: 0, safe: 0 });
+      return;
+    }
+
     const fetchStats = async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/stats`);
+        const res = await fetch(
+          `${BACKEND_URL}/api/stats?user_email=${encodeURIComponent(user.email)}`
+        );
         setMetrics(await res.json());
       } catch {}
     };
     fetchStats();
     const interval = setInterval(fetchStats, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   const totalChart = Math.max(metrics.threats + metrics.warnings + metrics.safe, 1);
   const threatPercent = (metrics.threats / totalChart) * 100;
@@ -108,12 +122,20 @@ export default function Dashboard({ user, onLogout }) {
             </div>
 
             {/* NPU status */}
-            <div className="inline-flex w-fit items-center gap-3 rounded-full border border-blue-400/30 bg-blue-400/10 px-4 py-2 text-sm font-semibold text-blue-300">
+            <div className={`inline-flex w-fit items-center gap-3 rounded-full border px-4 py-2 text-sm font-semibold ${
+              npuAcceleration
+                ? 'border-blue-400/30 bg-blue-400/10 text-blue-300'
+                : 'border-slate-600/30 bg-slate-700/10 text-slate-300'
+            }`}>
               <span className="relative flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full animate-pulse rounded-full opacity-75 bg-blue-400" />
-                <span className="relative inline-flex h-3 w-3 rounded-full bg-blue-400" />
+                <span className={`absolute inline-flex h-full w-full animate-pulse rounded-full opacity-75 ${
+                  npuAcceleration ? 'bg-blue-400' : 'bg-slate-500'
+                }`} />
+                <span className={`relative inline-flex h-3 w-3 rounded-full ${
+                  npuAcceleration ? 'bg-blue-400' : 'bg-slate-500'
+                }`} />
               </span>
-              ⚡ Intel NPU · DirectML Active
+              {npuAcceleration ? '⚡ Intel NPU · DirectML Active' : '⚡ Intel NPU · DirectML Inactive'}
             </div>
 
             {onLogout && (
@@ -174,10 +196,18 @@ export default function Dashboard({ user, onLogout }) {
               <p className="mt-3 text-5xl font-black tracking-wide text-white">{metrics.total_scanned.toLocaleString()}</p>
             </div>
             {/* NPU card */}
-            <div className="rounded-lg border border-blue-400/20 bg-blue-400/10 p-5">
+            <div className={`rounded-lg border p-5 ${
+              npuAcceleration
+                ? 'border-blue-400/20 bg-blue-400/10'
+                : 'border-slate-600/20 bg-slate-700/10'
+            }`}>
               <p className="text-sm font-semibold text-blue-200">Inference Engine</p>
-              <p className="mt-3 text-2xl font-black text-blue-300">Intel NPU</p>
-              <p className="text-xs text-blue-400 mt-1">DirectML · 0% CPU overhead</p>
+              <p className={`mt-3 text-2xl font-black ${npuAcceleration ? 'text-blue-300' : 'text-slate-300'}`}>
+                {npuAcceleration ? 'Intel NPU' : 'CPU fallback'}
+              </p>
+              <p className="text-xs mt-1 text-blue-400">
+                {npuAcceleration ? 'DirectML · 0% CPU overhead' : 'Local CPU inference mode'}
+              </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-5">

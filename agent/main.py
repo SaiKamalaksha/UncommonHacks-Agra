@@ -8,7 +8,7 @@ from agent.config import AgentConfig
 from agent.llm_analyst import LLMAnalyst
 from agent.scorer import Scorer
 from agent.permissions import check_folder_access
-from agent.auth import save_token, load_token
+from agent.auth import save_token, load_token, decode_token
 from agent.login_window import LoginWindow
 from agent.status import StatusStore
 from agent.tray_icon import build_tray
@@ -80,6 +80,13 @@ def main():
 
     # step 2 - login check
     token = load_token()
+    user_email = None
+    if token:
+        user_email = decode_token(token)
+        if not user_email:
+            print("[AUTH] Token invalid, showing login...")
+            token = None
+
     if not token:
         print("\n[AUTH] No saved session, showing login...")
         login = LoginWindow()
@@ -88,8 +95,14 @@ def main():
             print("[AUTH] Login cancelled, exiting.")
             sys.exit(1)
         save_token(token)
+        user_email = decode_token(token)
+        if not user_email:
+            print("[AUTH] Login token invalid, exiting.")
+            sys.exit(1)
     else:
         print("\n[AUTH] Session restored, skipping login.")
+
+    print(f"[AUTH] Logged in as: {user_email}")
 
     # step 3 - load models
     config = AgentConfig()
@@ -110,7 +123,7 @@ def main():
         print("\n[2/4] LLM disabled in config — ML-only mode.")
 
     print("\n[3/4] Initializing alerter ...")
-    alerter = Alerter(config)
+    alerter = Alerter(config, user_email=user_email)
     
     # patch alerter to update stats
     original_send = alerter.send_alert

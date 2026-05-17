@@ -3,7 +3,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from contextlib import asynccontextmanager
-from typing import List
+from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import bcrypt
@@ -83,8 +83,8 @@ def verify_token(body: dict):
 
 # ── alerts ────────────────────────────────────────────────────────────
 @app.get("/api/alerts", response_model=List[AlertOut])
-def get_alerts(limit: int = 50):
-    return database.get_recent_alerts(limit)
+def get_alerts(limit: int = 50, user_email: Optional[str] = None):
+    return database.get_recent_alerts(limit, user_email=user_email)
 
 @app.post("/api/alerts")
 def create_alert(alert: AlertIn):
@@ -92,5 +92,5 @@ def create_alert(alert: AlertIn):
     return {"id": alert_id, "status": "ok"}
 
 @app.get("/api/stats", response_model=StatsOut)
-def get_stats():
-    return database.get_stats()
+def get_stats(user_email: Optional[str] = None):
+    return database.get_stats(user_email=user_email)

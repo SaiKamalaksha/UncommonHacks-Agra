@@ -114,6 +114,25 @@ export default function Landing({ onLoginClick }) {
           ))}
         </div>
 
+        {/* quick instructions */}
+        <div className="w-full max-w-3xl rounded-3xl border border-white/10 bg-[#1c283d]/80 p-6 text-left shadow-2xl shadow-black/20">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#BBD987]">Quick Start</p>
+              <h2 className="mt-2 text-2xl font-black text-white">How to use Agra</h2>
+            </div>
+            <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-200">
+              Disable other blockers for best results
+            </span>
+          </div>
+          <ul className="mt-4 space-y-3 text-sm text-slate-300">
+            <li>1. Download and install Agra on your Windows machine.</li>
+            <li>2. Sign in or register to connect your device to the dashboard.</li>
+            <li>3. Keep Agra running in the system tray while you browse and download files.</li>
+            <li>4. If you use browser or endpoint blockers, temporarily disable them so Agra can inspect incoming files correctly.</li>
+          </ul>
+        </div>
+
         {/* sign in link */}
         <button
           onClick={onLoginClick}

@@ -13,6 +13,7 @@ class AlertIn(BaseModel):
     cluster_id: int
     hdbscan_cluster_id: int = -1
     llm_analysis: Optional[str] = None
+    user_email: Optional[str] = None
 
 class AlertOut(BaseModel):
     id: int
@@ -27,6 +28,7 @@ class AlertOut(BaseModel):
     cluster_id: int
     hdbscan_cluster_id: int
     llm_analysis: Optional[str]
+    user_email: Optional[str] = None
     verdict: str
 
 class StatsOut(BaseModel):

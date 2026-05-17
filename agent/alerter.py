@@ -5,8 +5,9 @@ from agent.scorer import ScanResult
 
 
 class Alerter:
-    def __init__(self, config: AgentConfig):
+    def __init__(self, config: AgentConfig, user_email: str | None = None):
         self.backend_url = config.backend_url
+        self.user_email = user_email
 
     def send_alert(self, result: ScanResult) -> bool:
         payload = {
@@ -21,6 +22,7 @@ class Alerter:
             "cluster_id": result.cluster_id,
             "hdbscan_cluster_id": result.hdbscan_cluster_id,
             "llm_analysis": result.llm_analysis,
+            "user_email": self.user_email,
         }
         try:
             r = requests.post(
