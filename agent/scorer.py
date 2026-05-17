@@ -48,6 +48,7 @@ class Scorer:
         model_path = Path(model_dir)
         print(f"  Loading models from {model_path} ...")
 
+        self.mode_label = "native"
         self._onnx_lgbm = None
         self._onnx_rf = None
         self._onnx_classify = None
@@ -65,6 +66,7 @@ class Scorer:
                 spec.loader.exec_module(onnx_mod)
                 self._onnx_lgbm, self._onnx_rf, mode = onnx_mod.load_classifier_sessions(model_path)
                 if self._onnx_lgbm is not None:
+                    self.mode_label = mode
                     self._onnx_classify = onnx_mod.onnx_classify
                     self._onnx_active = True
                     print(f"  ONNX Runtime loaded — mode: {mode}")
@@ -74,6 +76,10 @@ class Scorer:
         self.lgbm = lgb.Booster(model_file=str(model_path / "lgbm_classifier.model"))
 
         if not self._onnx_active:
+            try:
+                import sklearn.ensemble._forest  # noqa: F401
+            except ImportError:
+                pass
             with open(model_path / "random_forest_classifier.pkl", "rb") as f:
                 self.rf = pickle.load(f)
 

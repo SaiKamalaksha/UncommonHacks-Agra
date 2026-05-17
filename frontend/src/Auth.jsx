@@ -1,4 +1,3 @@
-// src/Auth.jsx
 import React, { useState } from 'react';
 import {
   auth,
@@ -6,6 +5,8 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from './firebase';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
 
 export default function Auth({ onLoginSuccess }) {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -26,6 +27,19 @@ export default function Auth({ onLoginSuccess }) {
         await updateProfile(credential.user, {
           displayName: name.trim(),
         });
+
+        // also register on Railway backend
+        try {
+          await fetch(`${BACKEND_URL}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+          console.log('[AUTH] Railway registration complete');
+        } catch {
+          console.log('[AUTH] Railway registration skipped');
+        }
+
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }

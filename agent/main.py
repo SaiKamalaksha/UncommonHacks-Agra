@@ -10,6 +10,7 @@ from agent.scorer import Scorer
 from agent.permissions import check_folder_access
 from agent.auth import save_token, load_token
 from agent.login_window import LoginWindow
+from agent.status import StatusStore
 from agent.tray_icon import build_tray
 
 # shared stats for tray
@@ -92,8 +93,10 @@ def main():
 
     # step 3 - load models
     config = AgentConfig()
+    status = StatusStore()
     print("\n[1/4] Loading ML models ...")
     scorer = Scorer(config.model_dir)
+    status.update_mode(scorer.mode_label)
 
     llm = None
     if config.use_llm:
@@ -121,7 +124,7 @@ def main():
     print(f"  Backend: {config.backend_url}")
 
     print("\n[4/4] Starting file watcher ...")
-    watcher = FileWatcher(config, scorer, llm, alerter)
+    watcher = FileWatcher(config, scorer, llm, alerter, status)
     watcher.start()
 
     print("\n" + "=" * 60)
@@ -139,7 +142,7 @@ def main():
         signal.signal(signal.SIGTERM, shutdown)
 
     # step 5 - run tray icon in main thread, watcher runs in background
-    icon = build_tray(watcher, stats)
+    icon = build_tray(watcher, stats, status)
     icon.run()
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ from agent.alerter import Alerter
 from agent.config import AgentConfig
 from agent.llm_analyst import LLMAnalyst
 from agent.scorer import Scorer
+from agent.status import StatusStore
 
 _SEEN_MAX = 10_000  # max debounce entries before evicting oldest
 
@@ -81,11 +82,13 @@ class FileWatcher:
         scorer: Scorer,
         llm: Optional[LLMAnalyst],
         alerter: Alerter,
+        status: Optional[StatusStore] = None,
     ):
         self.config = config
         self.scorer = scorer
         self.llm = llm
         self.alerter = alerter
+        self.status = status
         self.scan_queue: queue.Queue = queue.Queue()
         self._observer = Observer()
         self._worker_thread: Optional[threading.Thread] = None
@@ -143,14 +146,19 @@ class FileWatcher:
             else:
                 print(f"  [ALERT] Failed to send to backend.")
 
+            deleted = False
             if result.threat_score >= self.config.threat_threshold:
                 try:
                     os.remove(filepath)
+                    deleted = True
                     print(f"  [BLOCK] STOPPED THREAT - deleted file: {filepath}")
                 except FileNotFoundError:
                     print(f"  [BLOCK] File already removed: {filepath}")
                 except Exception as e:
                     print(f"  [BLOCK] Failed to delete {filepath}: {e}")
+
+            if self.status is not None:
+                self.status.record_scan(result, deleted=deleted, alert_sent=sent)
         except Exception as e:
             print(f"  [ERROR] Scanning {filepath}: {e}")
         finally:
