@@ -33,10 +33,11 @@ class LoginWindow:
         ).pack(pady=(20, 4))
 
         tk.Label(
-            self.root, text="Sign in to activate protection",
-            font=("Helvetica", 9),
-            bg="#0f0f0f", fg="#888888"
-        ).pack(pady=(0, 12))
+            self.root,
+            text="Register at uncommonhacks-agra.vercel.app",
+            font=("Helvetica", 8),
+            bg="#0f0f0f", fg="#555555"
+        ).pack(pady=(0, 4))
 
         self.email_var = tk.StringVar()
         self.pass_var = tk.StringVar()

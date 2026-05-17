@@ -16,24 +16,28 @@ export default function Landing({ onLoginClick }) {
           onClick={onLoginClick}
           className="rounded-lg border border-[#BBD987]/40 px-5 py-2 text-sm font-bold text-[#BBD987] hover:bg-[#BBD987]/10 transition"
         >
-          Sign In
+          Sign In / Register
         </button>
       </nav>
 
       {/* hero */}
       <main className="flex flex-1 flex-col items-center justify-center px-4 text-center gap-8">
-        <div className="flex flex-col items-center gap-4">
-          <div className="rounded-full border border-[#BBD987]/30 bg-[#BBD987]/10 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.3em] text-[#BBD987]">
-            NPU-Powered Endpoint Security
-          </div>
-          <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl lg:text-7xl">
-            Stop Threats.<br />
-            <span className="text-[#BBD987]">Before They Start.</span>
-          </h1>
-          <p className="max-w-xl text-lg text-slate-300 leading-relaxed">
-            Agra runs silently in the background, using your laptop's onboard AI chip to detect and delete malicious files the moment they land — no cloud round trips, no CPU tax.
-          </p>
+
+        {/* badge */}
+        <div className="rounded-full border border-[#BBD987]/30 bg-[#BBD987]/10 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.3em] text-[#BBD987]">
+          NPU-Powered Endpoint Security
         </div>
+
+        {/* headline */}
+        <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl lg:text-7xl">
+          Stop Threats.<br />
+          <span className="text-[#BBD987]">Before They Start.</span>
+        </h1>
+
+        {/* subheadline */}
+        <p className="max-w-xl text-lg text-slate-300 leading-relaxed">
+          Agra runs silently in the background, using your laptop's onboard AI chip to detect and delete malicious files the moment they land — no cloud round trips, no CPU tax, no privacy compromise.
+        </p>
 
         {/* download button */}
         <div className="flex flex-col items-center gap-3">
@@ -49,7 +53,7 @@ export default function Landing({ onLoginClick }) {
         </div>
 
         {/* stats bar */}
-        <div className="grid grid-cols-3 gap-6 rounded-xl border border-white/10 bg-[#2F3E46]/40 px-10 py-6 text-center">
+        <div className="grid grid-cols-3 gap-6 rounded-xl border border-white/10 bg-[#2F3E46]/40 px-10 py-6 text-center w-full max-w-2xl">
           <div>
             <p className="text-3xl font-black text-[#BBD987]">0ms</p>
             <p className="text-xs text-slate-400 mt-1">Cloud Latency</p>
@@ -67,9 +71,21 @@ export default function Landing({ onLoginClick }) {
         {/* how it works */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 max-w-3xl w-full">
           {[
-            { step: "01", title: "Download & Install", desc: "One click install. No configuration needed. Runs silently in your system tray." },
-            { step: "02", title: "Real-Time Detection", desc: "Every file in your Downloads and Desktop is scored instantly using our ML model on your NPU." },
-            { step: "03", title: "Live Dashboard", desc: "Sign in to see every threat stopped, file scanned, and alert generated across your devices." },
+            {
+              step: "01",
+              title: "Download & Install",
+              desc: "One click install. No configuration needed. Runs silently in your system tray the moment you launch it."
+            },
+            {
+              step: "02",
+              title: "Real-Time Detection",
+              desc: "Every file in your Downloads and Desktop is scored instantly using our ML model running directly on your NPU."
+            },
+            {
+              step: "03",
+              title: "Live Dashboard",
+              desc: "Sign in to see every threat stopped, file scanned, and alert generated across all your devices in real time."
+            },
           ].map(({ step, title, desc }) => (
             <div key={step} className="rounded-xl border border-white/10 bg-[#2F3E46]/40 p-5 text-left">
               <p className="text-xs font-black text-[#BBD987] tracking-widest">{step}</p>
@@ -79,18 +95,40 @@ export default function Landing({ onLoginClick }) {
           ))}
         </div>
 
+        {/* tech stack badges */}
+        <div className="flex flex-wrap justify-center gap-3">
+          {[
+            "⚡ Intel NPU · DirectML",
+            "🧠 LightGBM + Random Forest",
+            "🔍 EMBER2024 Dataset",
+            "🤖 Qwen 2.5 LLM Analysis",
+            "🛡️ Real-Time File Watching",
+            "☁️ Railway Cloud Backend",
+          ].map((badge) => (
+            <span
+              key={badge}
+              className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-semibold text-slate-300"
+            >
+              {badge}
+            </span>
+          ))}
+        </div>
+
+        {/* sign in link */}
         <button
           onClick={onLoginClick}
           className="text-sm text-slate-400 hover:text-[#BBD987] transition underline underline-offset-4"
         >
-          Already have an account? View your dashboard →
+          Sign in or create an account to view your dashboard →
         </button>
+
       </main>
 
       {/* footer */}
       <footer className="border-t border-white/10 px-8 py-4 text-center text-xs text-slate-500">
-        © 2026 Agra Security · Built at Uncommon Hacks
+        © 2026 Agra Security · Built at Uncommon Hacks · Powered by Intel NPU
       </footer>
+
     </div>
   );
 }
