@@ -8,7 +8,7 @@ import {
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
 
-export default function Auth({ onLoginSuccess }) {
+export default function Auth({ onLoginSuccess, onBack }) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -116,6 +116,17 @@ export default function Auth({ onLoginSuccess }) {
             </button>
           </div>
         </form>
+
+        {onBack && (
+          <div className="text-left">
+            <button
+              onClick={onBack}
+              className="text-xs text-slate-500 hover:text-slate-300 transition"
+            >
+              ← Back to home
+            </button>
+          </div>
+        )}
 
         <div className="text-center text-sm">
           <button
