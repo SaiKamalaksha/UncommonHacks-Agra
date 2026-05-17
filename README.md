@@ -1,179 +1,176 @@
 # AGRA - AI-Powered Endpoint Detection & Response
 
-AGRA is a lightweight EDR agent that monitors your filesystem for new files, scores them using ML models trained on the [EMBER2024](https://github.com/FutureComputing4AI/EMBER2024) dataset, enriches findings with a locally-hosted LLM (Qwen 2.5 0.5B via Ollama), and displays results on a real-time React dashboard.
+AGRA is a lightweight local EDR prototype. It watches common download locations, scores new files with ML models trained around EMBER-style features, sends alerts to a FastAPI backend, and shows results in a React dashboard.
 
-## Architecture
-
-```
-File dropped in ~/Downloads
-        |
-   [watchdog event]
-        |
-   Feature extraction (thrember / heuristic fallback)
-        |
-   ML scoring (LightGBM + Random Forest ensemble)
-        |
-   Clustering (KMeans + HDBSCAN)
-        |
-   LLM analysis (Qwen 2.5 0.5B via Ollama)
-        |
-   SQLite storage + FastAPI backend
-        |
-   React dashboard (real-time polling)
-```
+The current demo agent is intentionally built with a visible console so teammates can see detection, scoring, and deletion happen live.
 
 ## Prerequisites
 
-- **Python 3.10+**
-- **Node.js 18+** and npm
-- **Ollama** (for local LLM analysis)
+- Windows 10/11
+- Python 3.10+ recommended
+- Node.js 18+ and npm
+- Git
+- Ollama, optional but recommended for local LLM analysis
 
-## Quick Start
+## Setup
 
-### 1. Clone the repo
+### 1. Clone
 
-```bash
+```powershell
 git clone https://github.com/SaiKamalaksha/UncommonHacks-Agra.git
 cd UncommonHacks-Agra
 ```
 
-### 2. Install Python dependencies
+### 2. Create a virtual environment
 
-```bash
-pip install fastapi uvicorn watchdog lightgbm scikit-learn hdbscan requests numpy onnxruntime
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
+python -m pip install --upgrade pip
 ```
 
-### 3. Install thrember (EMBER2024 feature extractor)
+### 3. Install Python dependencies
 
-`thrember` is not on PyPI -- install it from the EMBER2024 repo:
+```powershell
+pip install -r requirements.txt
+```
 
-```bash
-git clone https://github.com/FutureComputing4AI/EMBER2024.git
+### 4. Install `thrember`
+
+`thrember` is not published on PyPI. Install it from the EMBER2024 repo:
+
+```powershell
+git submodule update --init --recursive
+
+# If EMBER2024 is still missing, use:
+# git clone https://github.com/FutureComputing4AI/EMBER2024.git
+
 cd EMBER2024
 pip install .
 cd ..
 ```
 
-### 4. Install and start Ollama
+### 5. Create the demo watch folder
 
-```bash
-# Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
+```powershell
+New-Item -ItemType Directory -Force C:\watched_folder
+```
 
-# Pull the Qwen model (~400MB)
+### 6. Optional: start Ollama
+
+```powershell
 ollama pull qwen2.5:0.5b
-
-# Start the Ollama server (if not already running)
 ollama serve
 ```
 
-> If you skip this step, AGRA still works in ML-only mode -- you just won't get LLM-generated threat descriptions.
+If Ollama is not running, the agent still works in ML-only mode.
 
-### 5. Install frontend dependencies
+## Running Locally
 
-```bash
+### Backend
+
+```powershell
+.\.venv\Scripts\activate
+uvicorn backend.app:app --reload --host 127.0.0.1 --port 8000
+```
+
+### Agent, visible console mode
+
+```powershell
+.\.venv\Scripts\activate
+python -m agent.main
+```
+
+The agent watches:
+
+- `%USERPROFILE%\Downloads`
+- `%USERPROFILE%\Desktop`
+- `C:\watched_folder`
+
+Logs are also written to:
+
+```text
+agent\AgraSecurity.log
+```
+
+### Frontend
+
+```powershell
 cd frontend
 npm install
-cd ..
-```
-
-### 6. Run the pipeline
-
-```bash
-python pipeline.py
-```
-
-This single command starts:
-- The FastAPI backend on `http://127.0.0.1:8000`
-- The file watcher on `~/Downloads`
-- The ML scoring engine (with ONNX acceleration if available)
-- The LLM analyst (connects to Ollama)
-
-### 7. Start the dashboard (separate terminal)
-
-```bash
-cd frontend
 npm run dev
 ```
 
-Open the URL shown by Vite (usually `http://localhost:5173`).
+Open the Vite URL shown in the terminal, usually `http://localhost:5173`.
 
-### 8. Test it
+## Building The Windows Agent EXE
 
-Download the [EICAR test file](https://www.eicar.org/download-anti-malware-testfile/) -- AGRA should detect it within seconds and display the alert on the dashboard. Malicious files are automatically deleted.
+The PyInstaller spec is in `agent/AgraSecurity.spec`.
 
-## CLI Options
-
+```powershell
+.\.venv\Scripts\activate
+cd agent
+pyinstaller AgraSecurity.spec
 ```
-python pipeline.py --watch ~/Downloads ~/Desktop   # watch multiple directories
-python pipeline.py --port 9000                      # change API port
-python pipeline.py --no-llm                         # disable LLM, ML-only mode
-python pipeline.py --no-npu                         # disable ONNX acceleration
+
+The executable is created at:
+
+```text
+agent\dist\AgraSecurity.exe
+```
+
+This build currently uses `console=True` so detections are visible during demos. Runtime logs are written beside the exe:
+
+```text
+agent\dist\AgraSecurity.log
+```
+
+## Testing Detection And Deletion
+
+Use the harmless built-in AGRA test signature:
+
+```powershell
+Set-Content C:\watched_folder\agra_visible_test.txt "AGRA-EDR-TEST-MALWARE"
+```
+
+Expected agent output:
+
+```text
+[DETECT] New file: C:\watched_folder\agra_visible_test.txt
+[SCAN] Scoring agra_visible_test.txt ...
+[TEST] AGRA test signature detected.
+[RESULT] agra_visible_test.txt: score=100, class=malicious
+[BLOCK] STOPPED THREAT - deleted file: C:\watched_folder\agra_visible_test.txt
+```
+
+You can also test with the official EICAR antivirus test file. Windows Defender may delete EICAR before AGRA sees it, so the AGRA test signature is the easiest demo path.
+
+## Important Runtime Notes
+
+- Files with score `>= 70` are deleted.
+- Password-protected/encrypted ZIP files are blocked because their contents cannot be inspected.
+- The packaged agent uses hidden imports in `AgraSecurity.spec` so pickled scikit-learn/HDBSCAN models load correctly.
+- The login window falls back to the dummy test login if Tkinter is unavailable in the local Python install.
+
+Dummy test credentials:
+
+```text
+email: test@agra.com
+password: agra1234
 ```
 
 ## Project Structure
 
-```
+```text
 UncommonHacks-Agra/
-├── pipeline.py              # All-in-one EDR pipeline (main entrypoint)
-├── model/
-│   ├── lgbm_classifier.model      # Trained LightGBM model
-│   ├── random_forest_classifier.pkl # Trained Random Forest model
-│   ├── kmeans_clusterer.pkl        # KMeans clustering model
-│   ├── hdbscan_clusterer.pkl       # HDBSCAN clustering model
-│   ├── cluster_scaler.pkl          # Feature scaler for clustering
-│   ├── cluster_pca.pkl             # PCA for dimensionality reduction
-│   ├── lgbm_classifier.onnx       # ONNX-optimized LightGBM (~232x faster)
-│   ├── random_forest_classifier.onnx # ONNX-optimized Random Forest
-│   └── convert_onnx.py            # Script to regenerate ONNX models
-├── frontend/
-│   ├── src/
-│   │   ├── Dashboard.jsx           # Main dashboard with live alert feed
-│   │   ├── App.jsx                 # App router with Firebase auth
-│   │   ├── Auth.jsx                # Login/signup page
-│   │   └── firebase.js             # Firebase config
-│   └── package.json
-├── agent/                   # Modular agent (alternative to pipeline.py)
-│   ├── main.py
-│   ├── agent.py
-│   ├── scorer.py
-│   ├── alerter.py
-│   ├── llm_analyst.py
-│   └── config.py
-├── backend/                 # Modular backend (alternative to pipeline.py)
-│   ├── app.py
-│   ├── database.py
-│   └── models.py
-└── README.md
+  agent/                 Windows file-watching agent
+    main.py              Agent entry point
+    agent.py             Watchdog queue and delete/block logic
+    scorer.py            ML scoring and safe test signatures
+    AgraSecurity.spec    PyInstaller build config
+  backend/               FastAPI alert API and SQLite storage
+  frontend/              React dashboard
+  model/                 Trained model files
+  pipeline.py            Older all-in-one pipeline entry point
+  requirements.txt       Python dependencies
 ```
-
-## How It Works
-
-1. **File Detection** -- Watchdog monitors configured directories for new, modified, or renamed files
-2. **Feature Extraction** -- Uses `thrember` (EMBER2024) to extract a 2568-dimensional feature vector from binaries. Falls back to heuristic extraction for non-PE files
-3. **ML Scoring** -- LightGBM and Random Forest classifiers produce independent malware probabilities, blended 70/30 into a 0-100 threat score
-4. **Clustering** -- KMeans and HDBSCAN assign cluster IDs to group similar threats
-5. **LLM Analysis** -- Sends ML findings to Qwen 2.5 0.5B (via Ollama) for a human-readable threat assessment
-6. **Alert & Response** -- Results are stored in SQLite, served via FastAPI, and displayed on the React dashboard. Files scoring above 70 are automatically deleted
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/alerts?limit=50` | Recent alerts |
-| `POST` | `/api/alerts` | Create alert (used by agent) |
-| `GET` | `/api/stats` | Aggregated scan statistics |
-
-## Tech Stack
-
-- **ML**: LightGBM, scikit-learn, HDBSCAN, ONNX Runtime
-- **LLM**: Qwen 2.5 0.5B via Ollama
-- **Backend**: FastAPI, SQLite, Uvicorn
-- **Frontend**: React 19, Vite 7, Tailwind CSS 4
-- **Auth**: Firebase
-- **File Monitoring**: Watchdog
-- **Feature Extraction**: thrember (EMBER2024)
-
-## License
-
-Built at UncommonHacks 2025.
